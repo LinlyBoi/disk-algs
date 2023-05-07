@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 fn main() {
     let requests: Vec<i32> = vec![176, 79, 34, 60, 92, 11, 41, 114];
     let init_head = 50;
@@ -5,7 +7,18 @@ fn main() {
         "FIFO seek distance is {}",
         fcfs(init_head, 0, requests.clone())
     );
-    println!("SSTF seek distance is {}", sstf(init_head, 0, requests));
+    println!(
+        "SSTF seek distance is {}",
+        sstf(init_head, 0, requests.clone())
+    );
+    println!(
+        "Scan seek distance is {}",
+        scan(init_head, 0, requests.clone(), &mut Direction::LEFT)
+    );
+    println!(
+        "FScan seek distance is {}",
+        fscan(init_head, 0, requests.clone(), Direction::LEFT, 4)
+    );
 }
 
 fn fcfs(head: i32, seek_distance: i32, mut requests: Vec<i32>) -> i32 {
@@ -40,14 +53,16 @@ fn sstf(head: i32, seek_distance: i32, mut requests: Vec<i32>) -> i32 {
     }
 }
 //defining initial direction here
-fn scan(mut head: i32, disk_end: i32, mut requests: Vec<i32>, direction: Direction) -> i32 {
+fn scan(mut head: i32, disk_end: i32, mut requests: Vec<i32>, direction: &mut Direction) -> i32 {
     requests.push(disk_end);
     match direction {
         Direction::LEFT => {
             requests.sort_by(|a, b| a.checked_sub(head).cmp(&b.checked_sub(head)));
+            *direction = Direction::RIGHT;
         }
         Direction::RIGHT => {
             requests.sort_by(|a, b| b.checked_sub(head).cmp(&a.checked_sub(head)));
+            *direction = Direction::LEFT;
         }
     }
     requests
@@ -58,6 +73,41 @@ fn scan(mut head: i32, disk_end: i32, mut requests: Vec<i32>, direction: Directi
             seek
         })
         .sum()
+}
+fn fscan(
+    mut head: i32,
+    disk_end: i32,
+    mut requests: Vec<i32>,
+    mut direction: Direction,
+    capacity: usize,
+) -> i32 {
+    let mut seek1: i32 = 0;
+    let mut seek2: i32 = 0;
+    let mut q1: Vec<i32> = Vec::with_capacity(capacity);
+    let mut q2: Vec<i32> = Vec::with_capacity(capacity);
+    use std::thread;
+    while !requests.clone().is_empty() {
+        loop {
+            if &q1.len() < &q1.capacity() && !requests.is_empty() {
+                &q1.push(requests.remove(0));
+            } else {
+                break;
+            }
+        }
+        loop {
+            if q2.len() < q2.capacity() && !requests.is_empty() {
+                q2.push(requests.remove(0));
+            } else {
+                break;
+            }
+        }
+        dbg!(&q1, &q2);
+        dbg!(requests.len());
+        seek1 += scan(head, disk_end, q1.clone(), &mut direction);
+        seek2 += scan(head, disk_end, q2.clone(), &mut direction);
+    }
+
+    seek1 + seek2
 }
 enum Direction {
     LEFT,
