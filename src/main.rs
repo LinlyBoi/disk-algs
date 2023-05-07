@@ -5,20 +5,20 @@ fn main() {
     let init_head = 50;
     println!(
         "FIFO seek distance is {}",
-        fcfs(init_head, 0, requests.clone())
+        fcfs(init_head, 200, requests.clone())
     );
     println!(
         "SSTF seek distance is {}",
-        sstf(init_head, 0, requests.clone())
+        sstf(init_head, 200, requests.clone())
     );
     println!(
         "Scan seek distance is {}",
-        scan(init_head, 0, requests.clone(), &mut Direction::LEFT)
+        scan(init_head, 200, requests.clone(), &mut Direction::LEFT)
     );
-    println!(
-        "FScan seek distance is {}",
-        fscan(init_head, 0, requests.clone(), Direction::LEFT, 4)
-    );
+    // println!(
+    //     "FScan seek distance is {}",
+    //     fscan(init_head, 200, requests.clone(), Direction::RIGHT, 4)
+    // );
 }
 
 fn fcfs(head: i32, seek_distance: i32, mut requests: Vec<i32>) -> i32 {
@@ -54,25 +54,42 @@ fn sstf(head: i32, seek_distance: i32, mut requests: Vec<i32>) -> i32 {
 }
 //defining initial direction here
 fn scan(mut head: i32, disk_end: i32, mut requests: Vec<i32>, direction: &mut Direction) -> i32 {
-    requests.push(disk_end);
+    requests.sort();
+    requests.insert(0, head);
+    let split_index: Option<usize>;
     match direction {
         Direction::LEFT => {
-            requests.sort_by(|a, b| a.checked_sub(head).cmp(&b.checked_sub(head)));
+            requests.sort_by(|a, b| (head - a).cmp(&(head - *b)));
+            //split into two
+
+            dbg!(&requests);
             *direction = Direction::RIGHT;
         }
         Direction::RIGHT => {
-            requests.sort_by(|a, b| b.checked_sub(head).cmp(&a.checked_sub(head)));
+            requests.push(disk_end);
+            requests.sort_by(|a, b| (head - b).cmp(&(head - *a)));
             *direction = Direction::LEFT;
         }
     }
-    requests
-        .iter()
-        .map(|request| {
-            let seek = request.abs_diff(head) as i32; //TODO turn to function params
-            head = *request;
-            seek
-        })
-        .sum()
+    split_index = split_vec(head, &mut requests);
+    dbg!(&split_index, &requests);
+    match split_index {
+        Some(foo) => cycle(&requests, foo)
+            .map(|request| {
+                let seek = request.abs_diff(head) as i32;
+                head = *request;
+                seek
+            })
+            .sum(),
+        None => requests
+            .iter()
+            .map(|request| {
+                let seek = request.abs_diff(head) as i32; //TODO turn to function params
+                head = *request;
+                seek
+            })
+            .sum(),
+    }
 }
 fn fscan(
     mut head: i32,
@@ -85,7 +102,6 @@ fn fscan(
     let mut seek2: i32 = 0;
     let mut q1: Vec<i32> = Vec::with_capacity(capacity);
     let mut q2: Vec<i32> = Vec::with_capacity(capacity);
-    use std::thread;
     while !requests.clone().is_empty() {
         loop {
             if &q1.len() < &q1.capacity() && !requests.is_empty() {
@@ -109,7 +125,18 @@ fn fscan(
 
     seek1 + seek2
 }
+fn split_vec(item: i32, items: &mut Vec<i32>) -> Option<usize> {
+    for (i, &pooper) in items.clone().iter().enumerate() {
+        if pooper == item {
+            return Some(i);
+        }
+    }
+    None
+}
 enum Direction {
     LEFT,
     RIGHT,
+}
+fn cycle<T>(slice: &[T], start_pos: usize) -> impl Iterator<Item = &T> {
+    slice.iter().cycle().skip(start_pos).take(slice.len())
 }
