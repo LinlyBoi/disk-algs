@@ -74,17 +74,27 @@ fn scan(mut head: i32, disk_end: i32, mut requests: Vec<i32>, direction: &mut Di
     split_index = split_vec(head, &mut requests);
     dbg!(&split_index, &requests);
     match split_index {
-        Some(foo) => cycle(&requests, foo)
-            .map(|request| {
-                let seek = request.abs_diff(head) as i32;
-                head = *request;
-                seek
-            })
-            .sum(),
+        Some(foo) => {
+            let mut seek: i32 = 0;
+            let mut right_side = requests.split_off(foo);
+            right_side.push(0);
+            dbg!(&right_side);
+            seek = fcfs(head, seek, right_side.clone());
+            requests.sort();
+            dbg!(&requests);
+            seek = fcfs(0, seek, requests);
+            seek
+        }
         None => requests
             .iter()
             .map(|request| {
-                let seek = request.abs_diff(head) as i32; //TODO turn to function params
+                let seek: i32;
+                if *request < head {
+                    seek = head + *request as i32; //TODO turn to function params
+                } else {
+                    seek = request.abs_diff(head) as i32; //TODO turn to function params
+                }
+
                 head = *request;
                 seek
             })
